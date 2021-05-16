@@ -8,14 +8,17 @@ import {
     Link
 } from "react-router-dom"
 import 'bootstrap/dist/css/bootstrap.min.css';
+import Data from './Data/Data.js';
 
     ReactDOM.render(
         <div>
         <Router>
-            <p>switch below</p>
             <Switch>
                 <Route path='/hdqa'>
                     <HDQA />
+                </Route>
+                <Route path='/data'>
+                    <Data />
                 </Route>
                 <Route path='/'>
                     <p>this is a path</p>
