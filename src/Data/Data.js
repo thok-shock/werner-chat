@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { useState } from 'react'
 import { Col, DropdownButton, Form, Nav, Navbar, Row, Table } from 'react-bootstrap'
+import PersonRow from './PersonRow'
 
 function renderDataTypes(dataTypes) {
     if (dataTypes) {
@@ -25,14 +26,48 @@ function breakdownDataByAgent(data) {
 }
 }
 
-function countHoursByAgent(data) {
+function determinePay(agent) {
+    let highestPay = 0
+    if (agent.training_levels) {
+        let thisPay = 0
+        agent.training_levels.forEach(level => {
+            switch(level) {
+                case "Pick 1":
+                    thisPay = 10.25;
+                    break;
+                case "Pick 3":
+                    thisPay = 10.75;
+                    break;
+                case "Chat/Email":
+                    thisPay = 11.25;
+                    break;
+                case "HDQA":
+                    thisPay = 12.00;
+            }
+            highestPay = thisPay > highestPay ? thisPay : highestPay
+        })
+        return highestPay
+} else {
+    return 9.75
+}
+    }
+    
+
+function countHoursByAgent(data, selectedShifts) {
     if (data) {
         let acmeCountHoursByAgentData = {}
         for (const agent in data) {
             var i = 0
             for (const date in data[agent]) {
                 for (const shift in data[agent][date]){
-                    i += data[agent][date][shift]
+                    //console.log(shift)
+                    for (const type in selectedShifts) {
+                        //console.log(selectedShifts[type])
+                        if (selectedShifts[type] == "on" && type == shift) {
+                            //console.log(type)
+                            i += data[agent][date][shift]
+                        }
+                    } 
             }}
             acmeCountHoursByAgentData[agent] = i/2
         }
@@ -43,7 +78,7 @@ function countHoursByAgent(data) {
 
 function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
     if (data && shiftNames && shiftNames.length > 0) {
-        let countedHours = countHoursByAgent(data)
+        let countedHours = countHoursByAgent(data, selectedShifts)
         let countedHoursJSONArray = []
         for (const agent in countedHours) {
             countedHoursJSONArray.push({agent: agent, hours: countedHours[agent]})
@@ -64,8 +99,9 @@ function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
                     //this turns out to be very important, as otherwise there is an extra space that messes things up when filtering later on
                     return value.trim()
                 })
-                row.newTrainingLevels = newTrainingLevels
+                row.training_levels = newTrainingLevels
             }
+            row.pay = determinePay(row)
             
             return row
         })
@@ -115,7 +151,8 @@ function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
         })
         return sortedFilteredNamedCountedHoursJSONArray.map((row) => {
             if (row && row.hours) {
-            return <tr key={row.agent}><td>{row.First_Name} {row.Last_Name}</td><td>{row.hours}</td><td>{row.team_name.toString()}</td></tr>
+                return <PersonRow person={row}></PersonRow>
+            //return <tr key={row.agent}><td>{row.First_Name} {row.Last_Name}</td><td>{row.hours}</td><td>{row.team_name.toString()}</td><td>${row.pay.toFixed(2)}</td></tr>
             }
         })
     } else {
@@ -124,19 +161,48 @@ function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
 }
 
 function renderTeamTypes(teams, updateTeams) {
-    if (teams && teams.length >0) {
+    if (teams && teams.length > 0) {
         return teams.map(team => {
             return <Form.Check type='checkbox' key={team.Team_ID} label={team.Team_Name} id={team.Team_Name} onChange={updateTeams} defaultChecked={team.Team_Name === 'GenHD' ? true : false}></Form.Check>
         }) 
     }   
 }
 
-function renderShiftTypes(shiftTypes, updateSelectedShiftTypes) {
+function renderShiftTypes(shiftTypes, updateSelectedShiftTypes, acmeTeams) {
     if (shiftTypes && shiftTypes.length > 0) {
+        let prevType = null
         return shiftTypes.map(shiftType => {
-            return <Form.Check type='checkbox' key={shiftType.id} label={shiftType.display} id={shiftType.display} onChange={updateSelectedShiftTypes} defaultChecked={shiftType.active == 1 ? true : false}></Form.Check>
+            if (shiftType.Group_ID != prevType) {
+                prevType = shiftType.Group_ID
+                let team = acmeTeams.find(team => {
+                    //console.log(team.Team_ID + ' ' + shiftType.Group_ID)
+                    if (team.Group_ID === shiftType.Group_ID) {
+                        return true
+                    }
+                })
+                //console.log(team)
+                return <div>
+                    <p style={{fontWeight: 'bold'}} className='m-3 text-center'>{
+                        team && team.Team_Name
+                    }</p>
+                    <Form.Check type='checkbox' key={shiftType.id} label={shiftType.display} id={shiftType.id} onChange={updateSelectedShiftTypes} defaultChecked={shiftType.active == 1 ? true : false}></Form.Check>
+                </div>
+            }
+            return <Form.Check type='checkbox' key={shiftType.id} label={shiftType.display} id={shiftType.id} onChange={updateSelectedShiftTypes} defaultChecked={shiftType.active == 1 ? true : false}></Form.Check>
         }) 
     }   
+}
+
+function renderTableTotals() {
+    let total = 0
+                    let table = document.getElementById('hoursTable')
+                    //console.log(table.rows.length)
+                    for (var i = 1; i < table.rows.length - 1; i++) {
+                        let money = parseFloat(table.rows[i].cells[4].innerHTML.substring(1))
+                        //console.log(money)
+                        total = total + money
+                    }
+                    return total.toFixed(2)
 }
 
 export default function Data(props) {
@@ -152,6 +218,8 @@ export default function Data(props) {
     })
     const [acmeShiftTypes, updateAcmeShiftTypes] = useState({})
     const [selectedShifts, updateSelectedShifts] = useState({})
+    const [loading, updateLoading] = useState(true)
+    const [tableTotal, updateTableTotal] = useState(0.00)
 
     useEffect(() => {
         fetch('/api/wiscit/fields')
@@ -173,6 +241,7 @@ export default function Data(props) {
 
     useEffect(() => {
         countHoursByAgent(acmeShifts)
+        updateLoading(false)
     }, [acmeShifts])
 
     useEffect(() => {
@@ -204,6 +273,12 @@ export default function Data(props) {
         })
     }, [])
 
+    useEffect(() => {
+        console.log(renderTableTotals())
+        updateTableTotal(renderTableTotals())
+    })
+
+
 
     function updateSelectedTeamsCheckBox(e) {
         if (selectedTeams[e.target.id] == "on") {
@@ -218,6 +293,7 @@ export default function Data(props) {
     }
 
     function updateSelectedShiftTypes(e) {
+        console.log(e.target.id)
         if (selectedShifts[e.target.id] == "on") {
             let newSelectedShifts = JSON.parse(JSON.stringify(selectedShifts))
             newSelectedShifts[e.target.id] = null
@@ -270,21 +346,24 @@ export default function Data(props) {
                     <DropdownButton title='Filter Shift Types' className='my-3 mx-2'>
                         <Form className='m-2'>
                             <Form.Group>
-                                {renderShiftTypes(acmeShiftTypes, updateSelectedShiftTypes)}
+                                {renderShiftTypes(acmeShiftTypes, updateSelectedShiftTypes, acmeTeams)}
                             </Form.Group>
                         </Form>
                     </DropdownButton>
                     </div>
-                <Table striped bordered hover size='sm' variant='light'>
+                <Table id='hoursTable' striped bordered hover size='sm' variant='light' onClick={(e) => {console.log(renderTableTotals())}}>
                 <thead>
-                    <tr>
+                    <tr style={{fontWeight: 'bold'}}>
                         <td>Agent ID</td>
                         <td>Total Hours</td>
                         <td>Team Name</td>
+                        <td>Wage ($/hr)</td>
+                        <td>Total Cost</td>
                         </tr>
                 </thead>
                 <tbody>
-                    {renderTotalHoursRows(acmeShifts, acmeShiftNames, selectedTeams)}
+                    {renderTotalHoursRows(acmeShifts, acmeShiftNames, selectedTeams, selectedShifts, updateLoading)}
+                    <tr><td></td><td></td><td></td><td></td><td style={{fontWeight: 'bold'}}>${tableTotal}</td></tr>
                 </tbody>
             </Table>
                 </Col>
