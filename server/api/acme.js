@@ -35,6 +35,17 @@ function getAcmeTeams() {
     })
 }
 
+function getAcmeShiftTypes() {
+    return new Promise((resolve, reject) => {
+        acmeDB.query({
+            sql: 'SELECT * FROM acme_wisc_edu_hd.SS_Schedule_Shift_Types ORDER BY Group_ID ASC;'
+        }, function(err, rows) {
+            if (err) reject(err)
+            resolve(rows)
+        })
+    })
+}
+
 
 const acmeRouter = express.Router()
 
@@ -54,6 +65,13 @@ acmeRouter.get('/shiftNames', (req, res) => {
 
 acmeRouter.get('/teamNames', (req, res) => {
     getAcmeTeams()
+    .then(data => {
+        res.json(data)
+    })
+})
+
+acmeRouter.get('/shiftTypes', (req, res) => {
+    getAcmeShiftTypes()
     .then(data => {
         res.json(data)
     })

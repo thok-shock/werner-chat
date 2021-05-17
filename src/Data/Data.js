@@ -41,13 +41,15 @@ function countHoursByAgent(data) {
     }
 }
 
-function renderTotalHoursRows(data, shiftNames, selectedTeams) {
+function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
     if (data && shiftNames && shiftNames.length > 0) {
         let countedHours = countHoursByAgent(data)
         let countedHoursJSONArray = []
         for (const agent in countedHours) {
             countedHoursJSONArray.push({agent: agent, hours: countedHours[agent]})
         }
+
+        //format information about person so that it is in a format that is easy to understand. (e.g. puts team membership of a user in an array)
         let formattedShiftNames = shiftNames.map((row) => {
             if (row.team_name) {row.team_name = row.team_name.toString().split(',')}
             if (row.training_levels) {row.training_levels = row.training_levels.toString().split(',')}
@@ -59,20 +61,24 @@ function renderTotalHoursRows(data, shiftNames, selectedTeams) {
         }
             if (row.training_levels) {
                 let newTrainingLevels = row.training_levels.map(value => {
+                    //this turns out to be very important, as otherwise there is an extra space that messes things up when filtering later on
                     return value.trim()
                 })
                 row.newTrainingLevels = newTrainingLevels
-    
             }
             
             return row
         })
+
+
+        //add information about person to ID gathered from data view
         let namedCountedHoursJSONArray = countedHoursJSONArray.map((row) => {
             let mergedRow = []
             formattedShiftNames.forEach(shiftNameRow => {
                 if (shiftNameRow.Employee_ID == row.agent) {
                     var duplicateAcmeHours = JSON.parse(JSON.stringify(row))
                     var duplicateAcmePeople = JSON.parse(JSON.stringify(shiftNameRow))
+                    //merges the two data sources together
                     mergedRow = {...duplicateAcmeHours, ...duplicateAcmePeople}
                 }
                 
@@ -125,6 +131,14 @@ function renderTeamTypes(teams, updateTeams) {
     }   
 }
 
+function renderShiftTypes(shiftTypes, updateSelectedShiftTypes) {
+    if (shiftTypes && shiftTypes.length > 0) {
+        return shiftTypes.map(shiftType => {
+            return <Form.Check type='checkbox' key={shiftType.id} label={shiftType.display} id={shiftType.display} onChange={updateSelectedShiftTypes} defaultChecked={shiftType.active == 1 ? true : false}></Form.Check>
+        }) 
+    }   
+}
+
 export default function Data(props) {
     const [dateRange, updateDateRange] = useState(['2021-04-01', '2021-04-30'])
     const [incidentFields, updateIncidentFields] = useState({})
@@ -136,6 +150,8 @@ export default function Data(props) {
     const [selectedTeams, updateSelectedTeams] = useState({
         GenHD: "on"
     })
+    const [acmeShiftTypes, updateAcmeShiftTypes] = useState({})
+    const [selectedShifts, updateSelectedShifts] = useState({})
 
     useEffect(() => {
         fetch('/api/wiscit/fields')
@@ -173,6 +189,22 @@ export default function Data(props) {
         })
     }, [])
 
+    useEffect(() => {
+        fetch('/api/acme/shiftTypes')
+        .then(res => res.json())
+        .then(res => {
+            updateAcmeShiftTypes(res)
+            let newObj = {}
+            res.forEach(type => {
+                if (type.active == 1) {
+                    newObj = {...newObj, [type.id]: "on"}
+                }
+            })
+            updateSelectedShifts(newObj)
+        })
+    }, [])
+
+
     function updateSelectedTeamsCheckBox(e) {
         if (selectedTeams[e.target.id] == "on") {
             let newSelectedTeams = JSON.parse(JSON.stringify(selectedTeams))
@@ -182,6 +214,18 @@ export default function Data(props) {
             let newSelectedTeams = JSON.parse(JSON.stringify(selectedTeams))
             newSelectedTeams[e.target.id] = e.target.value
             updateSelectedTeams(newSelectedTeams)
+        }
+    }
+
+    function updateSelectedShiftTypes(e) {
+        if (selectedShifts[e.target.id] == "on") {
+            let newSelectedShifts = JSON.parse(JSON.stringify(selectedShifts))
+            newSelectedShifts[e.target.id] = null
+            updateSelectedShifts(newSelectedShifts)
+        } else {
+            let newSelectedShifts = JSON.parse(JSON.stringify(selectedShifts))
+            newSelectedShifts[e.target.id] = e.target.value
+            updateSelectedShifts(newSelectedShifts)
         }
     }
 
@@ -222,6 +266,13 @@ export default function Data(props) {
                             {renderTeamTypes(acmeTeams, updateSelectedTeamsCheckBox)}
                             </Form.Group>
                     </Form>
+                    </DropdownButton>
+                    <DropdownButton title='Filter Shift Types' className='my-3 mx-2'>
+                        <Form className='m-2'>
+                            <Form.Group>
+                                {renderShiftTypes(acmeShiftTypes, updateSelectedShiftTypes)}
+                            </Form.Group>
+                        </Form>
                     </DropdownButton>
                     </div>
                 <Table striped bordered hover size='sm' variant='light'>
