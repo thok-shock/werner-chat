@@ -76,6 +76,18 @@ function countHoursByAgent(data, selectedShifts) {
     }
 }
 
+function getAgentShiftBreakdown(data, agentID) {
+    let foundData = {}
+    for (const agent in data) {
+        console.log(agent)
+        if (agent == agentID) {
+            foundData = data[agent]
+        }
+    }
+    return foundData
+
+}
+
 function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
     if (data && shiftNames && shiftNames.length > 0) {
         let countedHours = countHoursByAgent(data, selectedShifts)
@@ -102,6 +114,7 @@ function renderTotalHoursRows(data, shiftNames, selectedTeams, selectedShifts) {
                 row.training_levels = newTrainingLevels
             }
             row.pay = determinePay(row)
+            row.shiftBreakdown = getAgentShiftBreakdown(data, row.Employee_ID)
             
             return row
         })
@@ -206,7 +219,7 @@ function renderTableTotals() {
 }
 
 export default function Data(props) {
-    const [dateRange, updateDateRange] = useState(['2021-04-01', '2021-04-30'])
+    const [dateRange, updateDateRange] = useState(['2021-04-29', '2021-04-30'])
     const [incidentFields, updateIncidentFields] = useState({})
     const [acmeShifts, updateAcmeShifts] = useState([])
     const [acmeShiftsAgg, updateAcmeShiftsAgg] = useState([])
