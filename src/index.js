@@ -1,6 +1,5 @@
-import React from 'react'
+import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
-import HDQA from './HDQA/HDQA.js'
 import {
     BrowserRouter as Router,
     Switch,
@@ -8,22 +7,16 @@ import {
     Link
 } from "react-router-dom"
 import 'bootstrap/dist/css/bootstrap.min.css';
-import Data from './Data/Data.js';
+import {io} from 'socket.io-client'
+import { Button, Container, Form, Row, Col } from 'react-bootstrap';
+import Chat from './Chat';
+var socket = io()
+
+
+
     ReactDOM.render(
         <div>
-        <Router>
-            <Switch>
-                <Route path='/hdqa'>
-                    <HDQA />
-                </Route>
-                <Route path='/data'>
-                    <Data />
-                </Route>
-                <Route path='/'>
-                    <p>this is a path</p>
-                </Route>
-            </Switch>
-        </Router>
+        <Chat socket={socket}></Chat>
         </div>
     ,
       document.getElementById('root')
